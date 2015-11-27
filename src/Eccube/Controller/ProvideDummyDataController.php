@@ -26,17 +26,12 @@ namespace Eccube\Controller;
 
 use Eccube\Application;
 use Eccube\Tests\ConcreateEccubeTestCase;
-//use Eccube\Tests\ConcreateEccubeTestCase;
-//require_once 'EccubeTestCase.php';
-try{
-}catch(Exception $e){
-    var_dump($e->message);
-    exit();
-}
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class ProvideDummyDataController
+class ProvideDummyDataController extends AbstractController
 {
-    const MAKE_TOTAL = 10;
+    const MAKE_LIMIT = 100;
     const MAKE_DATA_CUSTOMER = 'createCustomer';
     const MAKE_DATA_PRODUCT = 'createProduct';
     const MAKE_DATA_ORDER = 'createOrder';
@@ -46,20 +41,48 @@ class ProvideDummyDataController
     private $params;
     private $testRoot;
     private $app;
+    private $total;
+    private $typeFromQuery;
 
     public function __construct(){
         $this->testRoot = dirname(dirname(dirname(dirname(__FILE__)))).DIRECTORY_SEPARATOR.'tests'.DIRECTORY_SEPARATOR.'Eccube'.DIRECTORY_SEPARATOR.'Tests'.DIRECTORY_SEPARATOR;
         include($this->testRoot.'ConcreateEccubeTestCase.php');
         $this->params = array();
         $this->DataFactory = new ConcreateEccubeTestCase();
+        $this->typeFromQuery = array('c', 'p', 'o');
     }
 
-    public function index(Application $app)
+    public function index(Application $app, Request $request)
     {
-        echo 'MakeStart!!</br>';
+        if ($request->getMethod() !== 'GET') {
+            throw new Exception('アクセスが不正です');
+        }
+
+        $type = $request->query->get('type');
+        $unit = $request->query->get('unit');
+
         $this->app = $app;
-        $this->setMakeDataType(self::MAKE_DATA_ORDER);
-        echo 'That is '.$this->MakeDataType.'. </br>';
+        if (in_array($type, $this->typeFromQuery)) {
+                switch($type){
+                    case 'c' :
+                        $this->setMakeDataType(self::MAKE_DATA_CUSTOMER);
+                        break;
+                    case 'p' :
+                        $this->setMakeDataType(self::MAKE_DATA_PRODUCT);
+                        break;
+                    case 'o' :
+                        $this->setMakeDataType(self::MAKE_DATA_ORDER);
+                        break;
+                }
+        }
+
+        if ($unit > self::MAKE_LIMIT ) {
+            throw new Exception(self::MAKE_LIMIT.'以上は作成できません');
+        }
+
+        echo 'MakeStart!!</br>';
+        echo 'Aleady made the '.$this->MakeDataType.'. </br>';
+        $this->total = $unit;
         $this->DataFactory->setApplication($app);
         $this->make();
         exit();
@@ -89,23 +112,19 @@ class ProvideDummyDataController
 
     private function make()
     {
+        set_time_limit(0);
         if($this->MakeDataType === self::MAKE_DATA_ORDER){
-            set_time_limit(0);
-            echo 'Ill makes '.'Object as '.count(self::MAKE_TOTAL).' num. </br>';
+            echo 'Aleady made the '.$this->MakeDataType.'Object , '.count($this->params).' num. </br>';
             foreach($this->params as $Customer){
-            //for($i = 0; $i < self::MAKE_TOTAL; $i++){
                 call_user_func_array(array($this->DataFactory,$this->MakeDataType), array($Customer));
-            //}
             }
             echo 'finished!!. </br>';
             exit();
         }
-        for($i = 0; $i < self::MAKE_TOTAL; $i++){
+        for($i = 0; $i < $this->total; $i++){
             call_user_func_array(array($this->DataFactory,$this->MakeDataType), $this->params);
         }
         echo 'finished!!. </br>';
         exit();
     }
-
-
 }
